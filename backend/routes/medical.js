@@ -1,49 +1,62 @@
 const express = require("express");
 const router = express.Router();
-const { Gateway, FileSystemWallet } = require("fabric-network");
+const { Gateway, FileSystemWallet, Wallets } = require("fabric-network");
 const path = require("path");
-const { truncateSync } = require("fs");
+const fs = require("fs");
 
 const adminId = "admin";
 
 // Create a new file system based wallet for managing identities.
 // Majid NOTE: Below path does not exist yet
-const ccpPath = path.resolve(__dirname, "..", "config", "connection-org1.json");
-const walletPath = path.join(process.cwd(), "wallet");
-const wallet = new FileSystemWallet(walletPath);
 
 /* post createPatiendRecord */
 router.post("/register-user", async function (req, res, next) {
   const { patientName } = req.body;
 
   try {
-    //cosnole the wallet path
+    const ccpPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "test-network",
+      "organizations",
+      "peerOrganizations",
+      "org1.example.com",
+      "connection-org1.json"
+    );
+    const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
+
+    // Create a new file system based wallet for managing identities.
+    const walletPath = path.join(process.cwd(), "wallet");
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
     console.log(`Wallet path: ${walletPath}`);
 
     // Check to see if we've already enrolled the user.
-    const userExists = await wallet.exists(adminId);
-    if (!userExists) {
-      console.log(`An identity for the user  does not exist in the wallet`);
-      res.json({
-        status: "failed",
-        message: `An identity for the user ${adminId} does not exist in the wallet`,
-      });
+    const identity = await wallet.get("admin");
+    if (!identity) {
+      console.log(
+        'An identity for the user "admin" does not exist in the wallet'
+      );
+      console.log("Run the enrollAdmin.js application before retrying");
       return;
     }
+
     // Create a new gateway for connecting to our peer node.
     const gateway = new Gateway();
-    // use the identity of user1 from wallet to connect
-    await gateway.connect(ccpPath, {
+    // console.log('gateway', gateway);
+    await gateway.connect(ccp, {
       wallet,
-      identity: adminId,
+      identity: "admin",
       discovery: { enabled: true, asLocalhost: true },
     });
 
     // Get the network (channel) our contract is deployed to.
     const network = await gateway.getNetwork("mychannel");
-
+    // console.log('network',network);
     // Get the contract from the network.
     const contract = network.getContract("medical");
+    //  console.log('contract',contract.chaincodeId);
 
     // Evaluate the specified transaction.
 
@@ -51,13 +64,14 @@ router.post("/register-user", async function (req, res, next) {
       "createPatientRecord",
       patientName
     );
-    console.log(
-      `Transaction has been evaluated, result is: ${result.toString()}`
-    );
+    console.log("Result", result);
+    // console.log(
+    //   `Transaction has been evaluated, result is: ${result.toString()}`
+    // );
     await gateway.disconnect();
     res.json({
       status: "success",
-      message: `create patient successful`,
+      message: `Create patient successful`,
     });
   } catch (error) {
     res.json({
@@ -66,27 +80,46 @@ router.post("/register-user", async function (req, res, next) {
     });
   }
 });
-//post medical record
-router.post("/add-record", async function (req, res, next) {
-  const { patientId, medicalRecord } = req.body;
 
+//post medical recordR
+router.post("/add-record", async function (req, res, next) {
+  const { patientId, medicalRecordObj } = req.body;
+  console.log(patientId, medicalRecordObj);
   try {
+    const ccpPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "test-network",
+      "organizations",
+      "peerOrganizations",
+      "org1.example.com",
+      "connection-org1.json"
+    );
+    const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
+
+    // Create a new file system based wallet for managing identities.
+    const walletPath = path.join(process.cwd(), "wallet");
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+    console.log(`Wallet path: ${walletPath}`);
+
     // Check to see if we've already enrolled the user.
-    const userExists = await wallet.exists(adminId);
-    if (!userExists) {
-      console.log(`An identity for the user  does not exist in the wallet`);
-      res.json({
-        status: "failed",
-        message: `An identity for the user ${adminId} does not exist in the wallet`,
-      });
+    const identity = await wallet.get("admin");
+    if (!identity) {
+      console.log(
+        'An identity for the user "admin" does not exist in the wallet'
+      );
+      console.log("Run the enrollAdmin.js application before retrying");
       return;
     }
+
     // Create a new gateway for connecting to our peer node.
     const gateway = new Gateway();
-    // use the identity of user1 from wallet to connect
-    await gateway.connect(ccpPath, {
+    // console.log('gateway', gateway);
+    await gateway.connect(ccp, {
       wallet,
-      identity: adminId,
+      identity: "admin",
       discovery: { enabled: true, asLocalhost: true },
     });
 
@@ -101,11 +134,12 @@ router.post("/add-record", async function (req, res, next) {
     const result = await contract.submitTransaction(
       "writePatientMedicalInfo",
       patientId,
-      medicalRecord
+      medicalRecordObj
     );
-    console.log(
-      `Transaction has been evaluated, result is: ${result.toString()}`
-    );
+    console.log("Result", result);
+    // console.log(
+    //   `Transaction has been evaluated, result is: ${result.toString()}`
+    // );
     await gateway.disconnect();
     res.json({
       status: "success",
@@ -125,22 +159,40 @@ router.post("/modify-consent", async function (req, res, next) {
   const { patientId, medicalRecordId, consentTo, flag } = req.body;
 
   try {
+    const ccpPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "test-network",
+      "organizations",
+      "peerOrganizations",
+      "org1.example.com",
+      "connection-org1.json"
+    );
+    const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
+
+    // Create a new file system based wallet for managing identities.
+    const walletPath = path.join(process.cwd(), "wallet");
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+    console.log(`Wallet path: ${walletPath}`);
+
     // Check to see if we've already enrolled the user.
-    const userExists = await wallet.exists(adminId);
-    if (!userExists) {
-      console.log(`An identity for the user  does not exist in the wallet`);
-      res.json({
-        status: "failed",
-        message: `An identity for the user ${adminId} does not exist in the wallet`,
-      });
+    const identity = await wallet.get("admin");
+    if (!identity) {
+      console.log(
+        'An identity for the user "admin" does not exist in the wallet'
+      );
+      console.log("Run the enrollAdmin.js application before retrying");
       return;
     }
+
     // Create a new gateway for connecting to our peer node.
     const gateway = new Gateway();
-    // use the identity of user1 from wallet to connect
-    await gateway.connect(ccpPath, {
+    // console.log('gateway', gateway);
+    await gateway.connect(ccp, {
       wallet,
-      identity: adminId,
+      identity: "admin",
       discovery: { enabled: true, asLocalhost: true },
     });
 
@@ -159,9 +211,10 @@ router.post("/modify-consent", async function (req, res, next) {
       consentTo,
       flag
     );
-    console.log(
-      `Transaction has been evaluated, result is: ${result.toString()}`
-    );
+    console.log("Result:", result);
+    // console.log(
+    //   `Transaction has been evaluated, result is: ${result.toString()}`
+    // );
     await gateway.disconnect();
     res.json({
       status: "success",
@@ -180,25 +233,42 @@ router.get("/get-medical-record", async function (req, res, next) {
   const { patientId, medicalRecordId } = req.body;
 
   try {
+    const ccpPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "test-network",
+      "organizations",
+      "peerOrganizations",
+      "org1.example.com",
+      "connection-org1.json"
+    );
+    const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
+
+    // Create a new file system based wallet for managing identities.
+    const walletPath = path.join(process.cwd(), "wallet");
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+    console.log(`Wallet path: ${walletPath}`);
+
     // Check to see if we've already enrolled the user.
-    const userExists = await wallet.exists(adminId);
-    if (!userExists) {
-      console.log(`An identity for the user  does not exist in the wallet`);
-      res.json({
-        status: "failed",
-        message: `An identity for the user ${adminId} does not exist in the wallet`,
-      });
+    const identity = await wallet.get("admin");
+    if (!identity) {
+      console.log(
+        'An identity for the user "admin" does not exist in the wallet'
+      );
+      console.log("Run the enrollAdmin.js application before retrying");
       return;
     }
+
     // Create a new gateway for connecting to our peer node.
     const gateway = new Gateway();
-    // use the identity of user1 from wallet to connect
-    await gateway.connect(ccpPath, {
+    // console.log('gateway', gateway);
+    await gateway.connect(ccp, {
       wallet,
-      identity: adminId,
+      identity: "admin",
       discovery: { enabled: true, asLocalhost: true },
     });
-
     // Get the network (channel) our contract is deployed to.
     const network = await gateway.getNetwork("mychannel");
 
@@ -207,19 +277,21 @@ router.get("/get-medical-record", async function (req, res, next) {
 
     // Evaluate the specified transaction.
 
-    const result = await contract.submitTransaction(
+    const result = await contract.evaluateTransaction(
       "getMedicalInfoById",
       patientId,
       medicalRecordId
     );
-    console.log(
-      `Transaction has been evaluated, result is: ${result.toString()}`
-    );
+
+    console.log("Result:", result);
+    // console.log(
+    //   `Transaction has been evaluated, result is: ${result.toString()}`
+    // );
     await gateway.disconnect();
     res.json({
       status: "success",
       message: `Medical record query success`,
-      data: result.toString(),
+      data: result,
     });
   } catch (error) {
     res.json({
@@ -234,22 +306,40 @@ router.delete("/delete-user", async function (req, res, next) {
   const { patientId } = req.body;
 
   try {
+    const ccpPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "test-network",
+      "organizations",
+      "peerOrganizations",
+      "org1.example.com",
+      "connection-org1.json"
+    );
+    const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
+
+    // Create a new file system based wallet for managing identities.
+    const walletPath = path.join(process.cwd(), "wallet");
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+    console.log(`Wallet path: ${walletPath}`);
+
     // Check to see if we've already enrolled the user.
-    const userExists = await wallet.exists(adminId);
-    if (!userExists) {
-      console.log(`An identity for the user  does not exist in the wallet`);
-      res.json({
-        status: "failed",
-        message: `An identity for the user ${adminId} does not exist in the wallet`,
-      });
+    const identity = await wallet.get("admin");
+    if (!identity) {
+      console.log(
+        'An identity for the user "admin" does not exist in the wallet'
+      );
+      console.log("Run the enrollAdmin.js application before retrying");
       return;
     }
+
     // Create a new gateway for connecting to our peer node.
     const gateway = new Gateway();
-    // use the identity of user1 from wallet to connect
-    await gateway.connect(ccpPath, {
+    // console.log('gateway', gateway);
+    await gateway.connect(ccp, {
       wallet,
-      identity: adminId,
+      identity: "admin",
       discovery: { enabled: true, asLocalhost: true },
     });
 
@@ -262,14 +352,15 @@ router.delete("/delete-user", async function (req, res, next) {
     // Evaluate the specified transaction.
 
     const result = await contract.submitTransaction("deleteUser", patientId);
-    console.log(
-      `Transaction has been evaluated, result is: ${result.toString()}`
-    );
+    console.log("Result", result);
+    // console.log(
+    //   `Transaction has been evaluated, result is: ${result.toString()}`
+    // );
     await gateway.disconnect();
     res.json({
       status: "success",
       message: `medical record updated successfully`,
-      data: result.toString(),
+      data: result,
     });
   } catch (error) {
     res.json({
